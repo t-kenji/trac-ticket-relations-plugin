@@ -1,0 +1,21 @@
+#relationships h3 {
+    border-bottom: 1px solid #d7d7d7;
+    box-shadow: .1em .2em .4em 0 #f2f2f2;
+    padding: 0 .2em;
+    font-size: 100%;
+    font-weight: normal;
+}
+
+#relationships .addticketrels {
+    font-size: 90%;
+}
+
+#relationships table.ticketrels {
+    width: 100%;
+}
+
+#relationships table.ticketrels td,
+#relationships table.ticketrels th {
+    font-size: 90%;
+}
+
