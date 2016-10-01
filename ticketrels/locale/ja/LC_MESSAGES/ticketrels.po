@@ -7,17 +7,18 @@
 # Steffen Hoffmann <hoff.st@web.de>, 2010.
 msgid ""
 msgstr ""
-"Project-Id-Version: TracTicketRelationssPlugin 0.0.x\n"
+"Project-Id-Version: TracTicketRelationsPlugin 0.0.x\n"
 "Report-Msgid-Bugs-To: protect.2501@gmail.com\n"
-"POT-Creation-Date: 2016-09-28 01:38+0200\n"
+"POT-Creation-Date: 2016-09-28 00:00+0000\n"
 "PO-Revision-Date: 2016-09-28 01:48+0200\n"
 "Last-Translator: t-kenji <protect.2501 at gmail.com>\n"
+"Language: ja\n"
 "Language-Team: ja <trac-dev@googlegroups.com>\n"
 "Plural-Forms: nplurals=1; plural=0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 1.0dev-r482\n"
+"Generated-By: Babel 2.3.4\n"
 
 #: ticketrels/api.py:164
 #, python-format
@@ -53,15 +54,12 @@ msgid "Not a valid list of ticket IDs"
 msgstr "有効なチケットIDリストにありません"
 
 #: ticketref/api.py:282
-#, python-format
 msgid "Input only numbers for ticket ID: {}"
 msgstr "チケット ID には数字のみを入力してください: {}"
 
 #: ticketref/api.py:285
-#, python-format
 msgid "Ticket {} is this ticket ID, remove it."
 msgstr "チケット {} はこのチケットなので削除してください。"
-
 
 #: ticketrels/web_ui.py:126
 #, python-format
@@ -81,6 +79,7 @@ msgid "Create new child ticket"
 msgstr "新規に子チケットを作成"
 
 #: ticketrels/web_ui.py:153
+#, fuzzy
 msgid "Child Tickets "
 msgstr "子チケット "
 
@@ -107,3 +106,4 @@ msgstr "を追加しました"
 #: ticketrels/web_ui.py:275
 msgid "removed"
 msgstr "を削除しました"
+
