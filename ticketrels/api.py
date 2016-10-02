@@ -43,8 +43,6 @@ from trac.util.translation import domain_functions
 from tracopt.ticket.commit_updater import CommitTicketUpdater
 
 import db_default
-from utils import sorted_refs
-
 
 NUMBERS_RE = re.compile(r'\d+', re.U)
 
@@ -190,7 +188,7 @@ class TicketParentChildRelations(Component):
                     """,
                     (ticket.id, ))
 
-# ITicketManipulator methods
+    # ITicketManipulator methods
     def prepare_ticket(self, req, ticket, fields, actions):
         pass
 
@@ -276,7 +274,10 @@ class TicketReference(Component):
         links = None
         desc_refs = self._get_refs(ticket['description'])
         if desc_refs:
-            ticket['refs'] = sorted_refs(ticket['refs'], desc_refs)
+            refs = set(int(i) for i in NUMBERS_RE.findall(ticket['refs']))
+            refs.update(desc_refs)
+            ticket['refs'] = u', '.join(str(i) for i in sorted(refs))
+
             links = TicketLinks(self.env, ticket)
             links.add_reference(desc_refs)
 

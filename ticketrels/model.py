@@ -5,7 +5,6 @@ from trac.ticket.model import Ticket
 from trac.ticket.notification import TicketNotifyEmail
 from trac.util.datefmt import utc, to_utimestamp
 
-from utils import text2list, list2text
 from api import NUMBERS_RE, _
 
 class TicketLinks(object):
@@ -59,17 +58,17 @@ class TicketLinks(object):
                                SELECT value FROM ticket_custom
                                WHERE ticket=%s AND name='refs'
                                """, (self.ticket.id,)):
-                    target_refs = text2list(ref)
+                    target_refs = set(int(i) for i in NUMBERS_RE.findall(ref))
                     if ref_id not in target_refs:
                         target_refs.add(ref_id)
-                        new_text = list2text(target_refs)
+                        new_text = u', '.join(str(i) for i in sorted(target_refs))
                         db("""
                            UPDATE ticket_custom SET value=%s
                            WHERE ticket=%s AND name='refs'
                            """, (new_text, self.ticket.id))
-                        refs = text2list(self.ticket['refs'])
+                        refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
                         refs.update(set([ref_id]))
-                        self.ticket['refs'] = list2text(refs)
+                        self.ticket['refs'] = u', '.join(str(i) for i in sorted(refs))
                     break
                 else:
                     db("""
@@ -88,10 +87,10 @@ class TicketLinks(object):
                                """, (ref_id,)):
                     break
                 ref = ref or ''
-                target_refs = text2list(ref)
+                target_refs = set(int(i) for i in NUMBERS_RE.findall(ref))
                 target_refs.remove(self.ticket.id)
                 if target_refs:
-                    new_text = list2text(target_refs)
+                    new_text = u', '.join(str(i) for i in sorted(target_refs))
                     db("""
                        UPDATE ticket_custom SET value=%s
                        WHERE ticket=%s AND name='refs'
@@ -118,10 +117,11 @@ class TicketLinks(object):
                                SELECT value FROM ticket_custom WHERE ticket=%s AND name='refs'
                                """, (ref_id,)):
                     ref = ref or ''
-                    target_refs = text2list(ref)
+                    target_refs = set(int(i) for i in NUMBERS_RE.findall(ref))
+
                     if self.ticket.id not in target_refs:
                         target_refs.add(self.ticket.id)
-                        new_text = list2text(target_refs)
+                        new_text = u', '.join(str(i) for i in sorted(target_refs))
                         db("""
                            UPDATE ticket_custom SET value=%s
                            WHERE ticket=%s AND name='refs'
@@ -150,16 +150,16 @@ class TicketLinks(object):
                        """, (self.time_stamp, ref_id))
 
     def create(self):
-        refs = text2list(self.ticket['refs'])
+        refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
         self.add_cross_reference(refs, self.ticket["reporter"])
 
     def change(self, author, old_refs_text):
-        old_refs = text2list(old_refs_text)
-        new_refs = text2list(self.ticket['refs'])
+        old_refs = set(int(i) for i in NUMBERS_RE.findall(old_refs_text))
+        new_refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
         with self.env.db_transaction as db:
             self.remove_cross_reference(old_refs - new_refs, author)
             self.add_cross_reference(new_refs - old_refs, author)
 
     def delete(self):
-        refs = text2list(self.ticket['refs'])
+        refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
         self.remove_cross_reference(refs, "admin")

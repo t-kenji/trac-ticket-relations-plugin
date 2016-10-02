@@ -37,7 +37,6 @@ from trac.util.text import shorten_line
 from genshi.builder import tag
 from genshi.filters import Transformer
 
-from utils import text2list
 from api import TicketRelationsSystem, \
                 TicketParentChildRelations, TicketReference, \
                 NUMBERS_RE, _
@@ -238,7 +237,7 @@ class TicketRelationsModule(Component):
                                 tbody = tag.tbody()
                                 div.append(tag.table(tbody, class_='ticketrels'))
 
-                                for id in sorted(text2list(ticket['refs'])):
+                                for id in sorted(set(int(i) for i in NUMBERS_RE.findall(ticket['refs']))):
                                     try:
                                         ticket = Ticket(self.env, id)
 
@@ -266,8 +265,8 @@ class TicketRelationsModule(Component):
         for changes in data.get('changes', []):
             field = changes.get('fields', {}).get('refs')
             if field:
-                old = text2list(field.get('old'))
-                new = text2list(field.get('new'))
+                old = set(int(i) for i in NUMBERS_RE.findall(field.get('old')))
+                new = set(int(i) for i in NUMBERS_RE.findall(field.get('new')))
                 if len(old) < len(new):
                     msg_key = 'added'
                     diff_ids = new.difference(old)
@@ -299,7 +298,7 @@ class TicketRelationsModule(Component):
 
     def _link_refs_line(self, req, refs_text):
         refs = []
-        for _id in sorted(text2list(refs_text)):
+        for _id in sorted(set(int(i) for i in NUMBERS_RE.findall(refs_text))):
             refs.extend([self._link_ref(req, _id), ', '])
 
         if refs:
