@@ -52,72 +52,19 @@ class TicketLinks(object):
                 tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
 
     def add_reference(self, refs):
+        for ref_id in refs:
+            self._add_reference_to_custom_table(ref_id)
+
+    def add_cross_reference(self, author, refs):
         with self.env.db_transaction as db:
             for ref_id in refs:
                 for ref, in db("""
                                SELECT value FROM ticket_custom
                                WHERE ticket=%s AND name='refs'
-                               """, (self.ticket.id,)):
-                    target_refs = set(int(i) for i in NUMBERS_RE.findall(ref))
-                    if ref_id not in target_refs:
-                        target_refs.add(ref_id)
-                        new_text = u', '.join(str(i) for i in sorted(target_refs))
-                        db("""
-                           UPDATE ticket_custom SET value=%s
-                           WHERE ticket=%s AND name='refs'
-                           """, (new_text, self.ticket.id))
-                        refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
-                        refs.update(set([ref_id]))
-                        self.ticket['refs'] = u', '.join(str(i) for i in sorted(refs))
-                    break
-                else:
-                    db("""
-                       INSERT INTO ticket_custom (ticket, name, value)
-                       VALUES (%s, 'refs', %s)
-                       """, (self.ticket.id, ref_id))
-                    self.ticket['refs'] = u"{}".format(ref_id)
-
-    def remove_cross_reference(self, refs, author):
-        with self.env.db_transaction as db:
-            for ref_id in refs:
-                ref = None
-                for ref, in db("""
-                               SELECT value FROM ticket_custom
-                               WHERE ticket=%s AND name='refs'
-                               """, (ref_id,)):
-                    break
-                ref = ref or ''
-                target_refs = set(int(i) for i in NUMBERS_RE.findall(ref))
-                target_refs.remove(self.ticket.id)
-                if target_refs:
-                    new_text = u', '.join(str(i) for i in sorted(target_refs))
-                    db("""
-                       UPDATE ticket_custom SET value=%s
-                       WHERE ticket=%s AND name='refs'
-                       """, (new_text, ref_id))
-                else:
-                    new_text = ''
-                    db("""
-                       DELETE FROM ticket_custom
-                       WHERE ticket=%s AND name='refs'
-                       """, (ref_id,))
-                db("""
-                   INSERT INTO ticket_change
-                   (ticket, time, author, field, oldvalue, newvalue)
-                   VALUES (%s, %s, %s, 'refs', %s, %s)
-                   """, (ref_id, self.time_stamp, author, ref.strip(), new_text))
-                db("""
-                   UPDATE ticket SET changetime=%s WHERE id=%s
-                   """, (self.time_stamp, ref_id))
-
-    def add_cross_reference(self, refs, author):
-        with self.env.db_transaction as db:
-            for ref_id in refs:
-                for ref, in db("""
-                               SELECT value FROM ticket_custom WHERE ticket=%s AND name='refs'
-                               """, (ref_id,)):
+                               """,
+                               (ref_id,)):
                     ref = ref or ''
-                    target_refs = set(int(i) for i in NUMBERS_RE.findall(ref))
+                    target_refs = set([int(i) for i in NUMBERS_RE.findall(ref)])
 
                     if self.ticket.id not in target_refs:
                         target_refs.add(self.ticket.id)
@@ -125,41 +72,100 @@ class TicketLinks(object):
                         db("""
                            UPDATE ticket_custom SET value=%s
                            WHERE ticket=%s AND name='refs'
-                           """, (new_text, ref_id))
+                           """,
+                           (new_text, ref_id))
                         db("""
                            INSERT INTO ticket_change
                            (ticket, time, author, field, oldvalue, newvalue)
                            VALUES (%s, %s, %s, 'refs', %s, %s)
-                           """, (ref_id, self.time_stamp, author, ref.strip(), new_text))
+                           """,
+                           (ref_id, self.time_stamp, author, ref.strip(), new_text))
                         db("""
                            UPDATE ticket SET changetime=%s WHERE id=%s
-                           """, (self.time_stamp, ref_id))
+                           """,
+                           (self.time_stamp, ref_id))
                     break
                 else:
                     db("""
                        INSERT INTO ticket_custom (ticket, name, value)
                        VALUES (%s, 'refs', %s)
-                       """, (ref_id, self.ticket.id))
+                       """,
+                       (ref_id, self.ticket.id))
                     db("""
                        INSERT INTO ticket_change
                        (ticket, time, author, field, oldvalue, newvalue)
                        VALUES (%s, %s, %s, 'refs', %s, %s)
-                       """, (ref_id, self.time_stamp, author, "", self.ticket.id))
+                       """,
+                       (ref_id, self.time_stamp, author, "", self.ticket.id))
                     db("""
                        UPDATE ticket SET changetime=%s WHERE id=%s
-                       """, (self.time_stamp, ref_id))
+                       """,
+                       (self.time_stamp, ref_id))
 
-    def create(self):
-        refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
-        self.add_cross_reference(refs, self.ticket["reporter"])
-
-    def change(self, author, old_refs_text):
-        old_refs = set(int(i) for i in NUMBERS_RE.findall(old_refs_text))
-        new_refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
+    def remove_cross_reference(self, author, refs):
         with self.env.db_transaction as db:
-            self.remove_cross_reference(old_refs - new_refs, author)
-            self.add_cross_reference(new_refs - old_refs, author)
+            for ref_id in refs:
+                ref = None
+                for ref, in db("""
+                               SELECT value FROM ticket_custom
+                               WHERE ticket=%s AND name='refs'
+                               """,
+                               (ref_id,)):
+                    break
 
-    def delete(self):
-        refs = set(int(i) for i in NUMBERS_RE.findall(self.ticket['refs']))
-        self.remove_cross_reference(refs, "admin")
+                ref = ref or ''
+                target_refs = set([int(i) for i in NUMBERS_RE.findall(ref)])
+                target_refs.remove(self.ticket.id)
+                if target_refs:
+                    new_text = u', '.join(str(i) for i in sorted(target_refs))
+                    db("""
+                       UPDATE ticket_custom SET value=%s
+                       WHERE ticket=%s AND name='refs'
+                       """,
+                       (new_text, ref_id))
+                else:
+                    new_text = ''
+                    db("""
+                       DELETE FROM ticket_custom
+                       WHERE ticket=%s AND name='refs'
+                       """,
+                       (ref_id,))
+                db("""
+                   INSERT INTO ticket_change
+                   (ticket, time, author, field, oldvalue, newvalue)
+                   VALUES (%s, %s, %s, 'refs', %s, %s)
+                   """,
+                   (ref_id, self.time_stamp, author, ref.strip(), new_text))
+                db("""
+                   UPDATE ticket SET changetime=%s WHERE id=%s
+                   """,
+                   (self.time_stamp, ref_id))
+
+    def _add_reference_to_custom_table(self, ref_id):
+        with self.env.db_transaction as db:
+            for ref, in db("""
+                           SELECT value FROM ticket_custom
+                           WHERE ticket=%s AND name='refs'
+                           """,
+                           (self.ticket.id,)):
+                target_refs = set([int(i) for i in NUMBERS_RE.findall(ref)])
+                if ref_id not in target_refs:
+                    target_refs.add(ref_id)
+                    new_text = u', '.join(str(i) for i in sorted(target_refs))
+                    db("""
+                       UPDATE ticket_custom SET value=%s
+                       WHERE ticket=%s AND name='refs'
+                       """,
+                       (new_text, self.ticket.id))
+                    refs = set([int(i) for i in NUMBERS_RE.findall(self.ticket['refs'])])
+                    refs.update(set([ref_id]))
+                    self.ticket['refs'] = u', '.join(str(i) for i in sorted(refs))
+                break
+            else:
+                db("""
+                   INSERT INTO ticket_custom (ticket, name, value)
+                   VALUES (%s, 'refs', %s)
+                   """,
+                   (self.ticket.id, ref_id))
+                self.ticket['refs'] = u"{}".format(ref_id)
+

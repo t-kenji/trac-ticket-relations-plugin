@@ -255,7 +255,7 @@ class TicketParentChildRelations(Component):
 
 class TicketReference(Component):
     """
-    [sub] Parent-Child Relations for ticket.
+    [sub] Reference for ticket.
     """
 
     implements(ITicketChangeListener, ITicketManipulator)
@@ -274,7 +274,7 @@ class TicketReference(Component):
         links = None
         desc_refs = self._get_refs(ticket['description'])
         if desc_refs:
-            refs = set(int(i) for i in NUMBERS_RE.findall(ticket['refs']))
+            refs = set([int(i) for i in NUMBERS_RE.findall(ticket['refs'])])
             refs.update(desc_refs)
             ticket['refs'] = u', '.join(str(i) for i in sorted(refs))
 
@@ -285,7 +285,9 @@ class TicketReference(Component):
             if not links:
                 links = TicketLinks(self.env, ticket)
             try:
-                links.create()
+                refs = set([int(i) for i in NUMBERS_RE.findall(ticket['refs'])])
+                links.add_cross_reference(ticket["reporter"], refs)
+
             except Exception, err:
                 self.log.error('{0}: ticket_created {1}'.format(__name__, err))
 
@@ -303,7 +305,15 @@ class TicketReference(Component):
             if not links:
                 links = TicketLinks(self.env, ticket)
             try:
-                links.change(author, old_values.get('refs'))
+                if old_values:
+                    # change fields
+                    old_refs = set([int(i) for i in NUMBERS_RE.findall(old_values.get('refs'))])
+                else:
+                    # comment oly
+                    old_refs = set([])
+                new_refs = set([int(i) for i in NUMBERS_RE.findall(ticket['refs'])])
+                links.remove_cross_reference(author, old_refs - new_refs)
+                links.add_cross_reference(author, new_refs - old_refs)
             except Exception, err:
                 self.log.error('{0}: ticket_changed {1}'.format(__name__, err))
 
@@ -311,7 +321,8 @@ class TicketReference(Component):
         if self.has_ticket_refs(ticket):
             links = TicketLinks(self.env, ticket)
             try:
-                links.delete()
+                refs = set([int(i) for i in NUMBERS_RE.findall(ticket['refs'])])
+                links.remove_cross_reference("admin", refs)
             except Exception, err:
                 self.log.error('{0}: ticket_deleted {1}'.format(__name__, err))
 

@@ -89,10 +89,12 @@ class TicketRelationsModule(Component):
             if data and 'ticket' in data:
                 ticket = data['ticket']
                 parents = ticket['parents'] or ''
-                ids = set(NUMBERS_RE.findall(parents))
-    
+                refs= ticket['refs'] or ''
+                
                 if len(parents) > 0:
-                    self._append_parent_links(req, data, ids)
+                    self._append_relations_links(req, data, 'parents', set(NUMBERS_RE.findall(parents)))
+                if len(refs) > 0:
+                    self._append_relations_links(req, data, 'refs', set(NUMBERS_RE.findall(refs)))
     
                 children = self.get_children(ticket.id)
                 if children:
@@ -100,7 +102,7 @@ class TicketRelationsModule(Component):
 
         return template, data, content_type
 
-    def _append_parent_links(self, req, data, ids):
+    def _append_relations_links(self, req, data, name, ids):
         links = []
         for id in sorted(ids, key=lambda x: int(x)):
             try:
@@ -115,7 +117,7 @@ class TicketRelationsModule(Component):
             except ResourceNotFound, e:
                 pass
         for field in data.get('fields', ''):
-            if field.get('name') == 'parents':
+            if field.get('name') == name:
                 field['rendered'] = tag.span(*links)
 
     # ITicketManipulator methods
@@ -161,7 +163,6 @@ class TicketRelationsModule(Component):
 
     # ITemplateStreamFilter method
     def filter_stream(self, req, method, filename, stream, data):
-        self.log.debug('*** filename: {} ***'.format(filename))
         if not (data and filename in TEMPLATE_FILES):
             return stream
 
@@ -263,22 +264,26 @@ class TicketRelationsModule(Component):
             self._filter_row_groups(req, data)
 
         for changes in data.get('changes', []):
-            field = changes.get('fields', {}).get('refs')
-            if field:
-                old = set(int(i) for i in NUMBERS_RE.findall(field.get('old')))
-                new = set(int(i) for i in NUMBERS_RE.findall(field.get('new')))
-                if len(old) < len(new):
-                    msg_key = 'added'
-                    diff_ids = new.difference(old)
-                else:
-                    msg_key = 'removed'
-                    diff_ids = old.difference(new)
+            def _field_changes_rerender(changes, name):
+                field = changes.get('fields', {}).get(name)
+                if field:
+                    old = set(int(i) for i in NUMBERS_RE.findall(field.get('old')))
+                    new = set(int(i) for i in NUMBERS_RE.findall(field.get('new')))
+                    if len(old) < len(new):
+                        msg_key = 'added'
+                        diff_ids = new.difference(old)
+                    else:
+                        msg_key = 'removed'
+                        diff_ids = old.difference(new)
 
-                elements = [self._link_ref(req, _id) for _id in diff_ids]
-                if elements:
-                    comma, f = tag.span(u', '), lambda x, y: x + comma + y
-                    field['rendered'] =  reduce(f, elements)
-                    field['rendered'] += tag.span(u' ' + _(msg_key))
+                    elements = [self._link_ref(req, _id) for _id in diff_ids]
+                    if elements:
+                        comma, f = tag.span(u', '), lambda x, y: x + comma + y
+                        field['rendered'] =  reduce(f, elements)
+                        field['rendered'] += tag.span(u' ' + _(msg_key))
+
+            _field_changes_rerender(changes, 'parents')
+            _field_changes_rerender(changes, 'refs')
 
         return stream
 
@@ -309,6 +314,9 @@ class TicketRelationsModule(Component):
     def _filter_groups(self, req, data):
         for group, tickets in data.get('groups', []):
             for ticket in tickets:
+                if 'parents' in ticket:
+                    if 'parents' in data.get('col'):
+                        ticket['parents'] = self._link_refs_line(req, ticket['parents'])
                 if 'refs' in ticket:
                     if 'refs' in data.get('col'):
                         ticket['refs'] = self._link_refs_line(req, ticket['refs'])
@@ -320,5 +328,7 @@ class TicketRelationsModule(Component):
                 if 'cell_groups' in row and _is_list:
                     for cells in row['cell_groups']:
                         for cell in cells:
+                            if cell.get('header', {}).get('col') == 'parents':
+                                cell['value'] = self._link_refs_line(req, cell['value'])
                             if cell.get('header', {}).get('col') == 'refs':
                                 cell['value'] = self._link_refs_line(req, cell['value'])
