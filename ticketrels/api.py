@@ -44,7 +44,6 @@ from tracopt.ticket.commit_updater import CommitTicketUpdater
 
 import db_default
 from utils import sorted_refs
-from model import TicketLinks
 
 
 NUMBERS_RE = re.compile(r'\d+', re.U)
@@ -54,6 +53,7 @@ NUMBERS_RE = re.compile(r'\d+', re.U)
 _, tag_, N_, add_domain = domain_functions('ticketrels',
     '_', 'tag_', 'N_', 'add_domain')
 
+from model import TicketLinks
 
 class TicketRelationsSystem(Component):
     """
@@ -176,36 +176,9 @@ class TicketParentChildRelations(Component):
         if new_parents == old_parents:
             return
 
-        with self.env.db_transaction as db:
-            cursor = db.cursor()
-
-            # remove old parents
-            for parent in old_parents - new_parents:
-                cursor.execute("""
-                        DELETE FROM ticketrels
-                        WHERE oneself=%s AND relations='child' AND ticket=%s
-                        """,
-                        (parent, ticket.id))
-
-                # add a comment to old parent
-                xticket = Ticket(self.env, parent)
-                xticket.save_changes(author, _('Remove a child ticket #%s (%s).') % (ticket.id, ticket['summary']))
-                tn = TicketNotifyEmail(self.env)
-                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
-
-            # add new parents
-            for parent in new_parents - old_parents:
-                cursor.execute("""
-                        INSERT INTO ticketrels (oneself, relations, ticket)
-                        VALUES(%s, 'child', %s)
-                        """,
-                        (parent, ticket.id))
-
-                # add a comment to new parent
-                xticket = Ticket(self.env, parent)
-                xticket.save_changes(author, _('Add a child ticket #%s (%s).') % (ticket.id, ticket['summary']))
-                tn = TicketNotifyEmail(self.env)
-                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
+        links = TicketLinks(self.env, ticket)
+        links.remove_child(author, old_parents - new_parents)
+        links.add_child(author, new_parents - old_parents)
 
     def ticket_deleted(self, ticket):
         with self.env.db_transaction as db:

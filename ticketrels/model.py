@@ -2,9 +2,11 @@
 from datetime import datetime
 
 from trac.ticket.model import Ticket
+from trac.ticket.notification import TicketNotifyEmail
 from trac.util.datefmt import utc, to_utimestamp
 
 from utils import text2list, list2text
+from api import NUMBERS_RE, _
 
 class TicketLinks(object):
     """A model for the ticket links as cross reference."""
@@ -15,7 +17,41 @@ class TicketLinks(object):
             ticket = Ticket(self.env, ticket)
         self.ticket = ticket
         self.time_stamp = to_utimestamp(datetime.now(utc))
-    
+
+    def add_child(self, author, parents):
+        with self.env.db_transaction as db:
+            cursor = db.cursor()
+
+            for parent in parents:
+                cursor.execute("""
+                        INSERT INTO ticketrels (oneself, relations, ticket)
+                        VALUES(%s, 'child', %s)
+                        """,
+                        (parent, self.ticket.id))
+
+                # add a comment to new parent
+                xticket = Ticket(self.env, parent)
+                xticket.save_changes(author, _('Add a child ticket #%s (%s).') % (self.ticket.id, self.ticket['summary']))
+                tn = TicketNotifyEmail(self.env)
+                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
+
+    def remove_child(self, author, parents):
+        with self.env.db_transaction as db:
+            cursor = db.cursor()
+
+            for parent in parents:
+                cursor.execute("""
+                        DELETE FROM ticketrels
+                        WHERE oneself=%s AND relations='child' AND ticket=%s
+                        """,
+                        (parent, self.ticket.id))
+
+                # add a comment to removed parent
+                xticket = Ticket(self.env, parent)
+                xticket.save_changes(author, _('Remove a child ticket #%s (%s).') % (self.ticket.id, self.ticket['summary']))
+                tn = TicketNotifyEmail(self.env)
+                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
+
     def add_reference(self, refs):
         with self.env.db_transaction as db:
             for ref_id in refs:
