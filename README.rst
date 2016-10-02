@@ -23,4 +23,20 @@ Add the following to your trac conf::
 Usage
 -----
 
-T.B.D
+Report
+^^^^^^
+
+Active Tickets::
+
+    SELECT p.value AS __color__,
+      id AS ticket, summary, component, version, milestone, t.type AS type,
+      owner, status,
+      time AS created,
+      changetime AS _changetime, description AS _description,
+      reporter AS _reporter,
+      cp.value AS parents,
+      cr.value AS refs
+      FROM ticket t
+      LEFT OUTER JOIN ticket_custom cp ON
+
+
