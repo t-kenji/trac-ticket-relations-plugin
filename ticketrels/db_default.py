@@ -30,15 +30,12 @@
 from trac.db import Table, Column
 
 name = 'ticketrels'
-version = 3
+version = 2
 tables = [
-    Table('ticketrels_parents_and_children', key=('parent','child'))[
-        Column('parent', type='int'),
-        Column('child', type='int'),
-    ],
-    Table('ticketrels_refs', key=('this', 'ref'))[
-        Column('this', type='int'),
-        Column('ref', type='int'),
+    Table(name, key=('oneself', 'relations', 'ticket'))[
+        Column('oneself', type='int'),
+        Column('relations', type='text'),
+        Column('ticket', type='int'),
     ],
 ]
 

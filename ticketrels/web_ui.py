@@ -38,7 +38,9 @@ from genshi.builder import tag
 from genshi.filters import Transformer
 
 from utils import text2list
-from api import TicketRelationsSystem, NUMBERS_RE, _
+from api import TicketRelationsSystem, \
+                TicketParentChildRelations, TicketReference, \
+                NUMBERS_RE, _
 
 TEMPLATE_FILES = [
     'query.html',
@@ -67,7 +69,7 @@ class TicketRelationsModule(Component):
                ITicketManipulator,
                ITemplateStreamFilter)
 
-    restricted_status = TicketRelationsSystem.restricted_status
+    restricted_status = TicketParentChildRelations.restricted_status
 
     # ITemplateProvider methods
     def get_htdocs_dirs(self):
@@ -124,8 +126,10 @@ class TicketRelationsModule(Component):
     def get_children(self, parent_id):
         children = {}
         for parent, child in self.env.db_query("""
-                SELECT parent, child FROM ticketrels_parents_and_children WHERE parent=%s
-                """, (parent_id, )):
+                SELECT oneself, ticket FROM ticketrels
+                WHERE oneself=%s AND relations='child'
+                """,
+                (parent_id, )):
             children[child] = None
 
         for id in children:
@@ -138,8 +142,11 @@ class TicketRelationsModule(Component):
         if action == 'resolve':
             with self.env.db_query as db:
                 cursor = db.cursor()
-                cursor.execute("SELECT parent, child FROM ticketrels_parents_and_children WHERE parent=%s",
-                               (ticket.id, ))
+                cursor.execute("""
+                        SELECT oneself, ticket FROM ticketrels
+                        WHERE oneself=%s AND relations='child'
+                        """,
+                        (ticket.id, ))
 
                 for parent, child in cursor:
                     status = Ticket(self.env, child)['status']

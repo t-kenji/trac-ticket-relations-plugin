@@ -15,7 +15,7 @@ class TicketLinks(object):
             ticket = Ticket(self.env, ticket)
         self.ticket = ticket
         self.time_stamp = to_utimestamp(datetime.now(utc))
-
+    
     def add_reference(self, refs):
         with self.env.db_transaction as db:
             for ref_id in refs:

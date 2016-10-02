@@ -56,19 +56,15 @@ _, tag_, N_, add_domain = domain_functions('ticketrels',
 
 
 class TicketRelationsSystem(Component):
+    """
+    [core] Ticket relations system for Trac.
+    """
 
-    implements(IEnvironmentSetupParticipant,
-               ITicketChangeListener,
-               ITicketManipulator)
-
-    restricted_status = ListOption('ticketrels', 'restricted_status',
-                                   'closed', doc=
-        """List of the children's statuses which prevent from closing parent ticket.
-        """)
+    implements(IEnvironmentSetupParticipant)
 
     def __init__(self):
         self._version = None
-        self.ui = None
+        """self.ui = None"""
         # bind the 'ticketrels' catalog to the locale directory
         locale_dir = pkg_resources.resource_filename(__name__, 'locale')
         add_domain(self.env.path, locale_dir)
@@ -81,7 +77,7 @@ class TicketRelationsSystem(Component):
     def environment_needs_upgrade(self):
         with self.env.db_query as db:
             cursor = db.cursor()
-            cursor.execute("SELECT value FROM system WHERE name=%s",
+            cursor.execute('SELECT value FROM system WHERE name=%s',
                            (db_default.name, ))
             value = cursor.fetchone()
             try:
@@ -109,17 +105,19 @@ class TicketRelationsSystem(Component):
         with self.env.db_transaction as db:
             cursor = db.cursor()
             if not self.found_db_version:
-                cursor.execute("INSERT INTO system (name, value) VALUES (%s, %s)",
-                               (db_default.name, db_default.version))
+                cursor.execute("""
+                        INSERT INTO system (name, value) VALUES (%s, %s)
+                        """,
+                        (db_default.name, db_default.version))
             else:
-                cursor.execute("UPDATE system SET value=%s WHERE name=%s",
+                cursor.execute('UPDATE system SET value=%s WHERE name=%s',
                                (db_default.version, db_default.name))
                 for table in db_default.tables:
-                    cursor.execute("SELECT * FROM " + table.name)
+                    cursor.execute('SELECT * FROM ' + table.name)
                     cols = [x[0] for x in cursor.description]
                     rows = cursor.fetchall()
                     old_data[table.name] = (cols, rows)
-                    cursor.execute("DROP TABLE " + table.name)
+                    cursor.execute('DROP TABLE ' + table.name)
 
             # insert the default table
             for table in db_default.tables:
@@ -146,72 +144,84 @@ class TicketRelationsSystem(Component):
             cfield.set('refs.label', 'Reference Tickets')
             self.config.save()
 
-    def has_ticket_refs(self, ticket):
-        refs = ticket['refs']
-        return refs and refs.strip()
+class TicketParentChildRelations(Component):
+    """
+    [sub] Parent-Child Relations for ticket.
+    """
+
+    implements(ITicketChangeListener, ITicketManipulator)
+
+    restricted_status = ListOption('ticketrels', 'restricted_status',
+                                   'closed', doc=
+        """List of the children's statuses which prevent from closing parent ticket.
+        """)
+
+    def __init__(self):
+        # bind the 'ticketrels' catalog to the locale directory
+        locale_dir = pkg_resources.resource_filename(__name__, 'locale')
+        add_domain(self.env.path, locale_dir)
 
     # ITicketChangeListener methods
     def ticket_created(self, ticket):
         self.ticket_changed(ticket, '', ticket['reporter'], {'parents': ''})
 
-        # update refs
-        links = None
-        desc_refs = self._get_refs(ticket['description'])
-        if desc_refs:
-            ticket['refs'] = sorted_refs(ticket['refs'], desc_refs)
-            links = TicketLinks(self.env, ticket)
-            links.add_reference(desc_refs)
-
-        if self.has_ticket_refs(ticket):
-            if not links:
-                links = TicketLinks(self.env, ticket)
-            try:
-                links.create()
-            except Exception, err:
-                self.log.error('{0}: ticket_created {1}'.format(__name__, err))
-
     def ticket_changed(self, ticket, comment, author, old_values):
-        self._update_parents(ticket, comment, author, old_values)
+        if 'parents' not in old_values:
+            return
 
-        # update refs
-        links = None
-        need_change = 'refs' in old_values
+        old_parents = old_values.get('parents', '') or ''
+        old_parents = set(NUMBERS_RE.findall(old_parents))
+        new_parents = set(NUMBERS_RE.findall(ticket['parents'] or ''))
 
-        comment_refs = self._get_refs(comment, [ticket.id])
-        if comment_refs:
-            links = TicketLinks(self.env, ticket)
-            links.add_reference(comment_refs)
-            need_change = True
+        if new_parents == old_parents:
+            return
 
-        if need_change:
-            if not links:
-                links = TicketLinks(self.env, ticket)
-            try:
-                links.change(author, old_values.get('refs'))
-            except Exception, err:
-                self.log.error('{0}: ticket_changed {1}'.format(__name__, err))
+        with self.env.db_transaction as db:
+            cursor = db.cursor()
+
+            # remove old parents
+            for parent in old_parents - new_parents:
+                cursor.execute("""
+                        DELETE FROM ticketrels
+                        WHERE oneself=%s AND relations='child' AND ticket=%s
+                        """,
+                        (parent, ticket.id))
+
+                # add a comment to old parent
+                xticket = Ticket(self.env, parent)
+                xticket.save_changes(author, _('Remove a child ticket #%s (%s).') % (ticket.id, ticket['summary']))
+                tn = TicketNotifyEmail(self.env)
+                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
+
+            # add new parents
+            for parent in new_parents - old_parents:
+                cursor.execute("""
+                        INSERT INTO ticketrels (oneself, relations, ticket)
+                        VALUES(%s, 'child', %s)
+                        """,
+                        (parent, ticket.id))
+
+                # add a comment to new parent
+                xticket = Ticket(self.env, parent)
+                xticket.save_changes(author, _('Add a child ticket #%s (%s).') % (ticket.id, ticket['summary']))
+                tn = TicketNotifyEmail(self.env)
+                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
 
     def ticket_deleted(self, ticket):
-        # update parents and children
         with self.env.db_transaction as db:
             cursor = db.cursor()
             # TODO: check if there's any child ticket
-            cursor.execute("DELETE FROM ticketrels_parents_and_children WHERE child=%s", (ticket.id, ))
+            cursor.execute("""
+                    DELETE FROM ticketrels
+                    WHERE child=%s AND relations='child'
+                    """,
+                    (ticket.id, ))
 
-        # update refs
-        if self.has_ticket_refs(ticket):
-            links = TicketLinks(self.env, ticket)
-            try:
-                links.delete()
-            except Exception, err:
-                self.log.error('{0}: ticket_deleted {1}'.format(__name__, err))
-
-    # ITicketManipulator methods
+# ITicketManipulator methods
     def prepare_ticket(self, req, ticket, fields, actions):
         pass
 
     def validate_ticket(self, req, ticket):
-        # validate parents and children
         with self.env.db_query as db:
             cursor = db.cursor()
 
@@ -236,9 +246,10 @@ class TicketRelationsSystem(Component):
                     all_parents = all_parents + [id]
                     errors = []
                     cursor.execute("""
-                                   SELECT parent FROM ticketrels_parents_and_children
-                                   WHERE child=%s
-                                   """, (id, ))
+                            SELECT oneself FROM ticketrels
+                            WHERE ticket=%s AND relations='child'
+                            """,
+                            (id, ))
                     for x in [int(x[0]) for x in cursor]:
                         if x in all_parents:
                             invalid_ids.add(x)
@@ -246,6 +257,7 @@ class TicketRelationsSystem(Component):
                             errors.append(('parents', _('Circularity error: %s') % error))
                         else:
                             errors += _check_parents(x, all_parents)
+
                     return errors
 
                 for x in [i for i in _ids if i not in invalid_ids]:
@@ -270,7 +282,70 @@ class TicketRelationsSystem(Component):
                 self.log.error(traceback.format_exc())
                 yield 'parents', _('Not a valid list of ticket IDs')
 
-        # validate refs
+class TicketReference(Component):
+    """
+    [sub] Parent-Child Relations for ticket.
+    """
+
+    implements(ITicketChangeListener, ITicketManipulator)
+
+    def __init__(self):
+        # bind the 'ticketrels' catalog to the locale directory
+        locale_dir = pkg_resources.resource_filename(__name__, 'locale')
+        add_domain(self.env.path, locale_dir)
+
+    def has_ticket_refs(self, ticket):
+        refs = ticket['refs']
+        return refs and refs.strip()
+
+    # ITicketChangeListener methods
+    def ticket_created(self, ticket):
+        links = None
+        desc_refs = self._get_refs(ticket['description'])
+        if desc_refs:
+            ticket['refs'] = sorted_refs(ticket['refs'], desc_refs)
+            links = TicketLinks(self.env, ticket)
+            links.add_reference(desc_refs)
+
+        if self.has_ticket_refs(ticket):
+            if not links:
+                links = TicketLinks(self.env, ticket)
+            try:
+                links.create()
+            except Exception, err:
+                self.log.error('{0}: ticket_created {1}'.format(__name__, err))
+
+    def ticket_changed(self, ticket, comment, author, old_values):
+        links = None
+        need_change = 'refs' in old_values
+
+        comment_refs = self._get_refs(comment, [ticket.id])
+        if comment_refs:
+            links = TicketLinks(self.env, ticket)
+            links.add_reference(comment_refs)
+            need_change = True
+
+        if need_change:
+            if not links:
+                links = TicketLinks(self.env, ticket)
+            try:
+                links.change(author, old_values.get('refs'))
+            except Exception, err:
+                self.log.error('{0}: ticket_changed {1}'.format(__name__, err))
+
+    def ticket_deleted(self, ticket):
+        if self.has_ticket_refs(ticket):
+            links = TicketLinks(self.env, ticket)
+            try:
+                links.delete()
+            except Exception, err:
+                self.log.error('{0}: ticket_deleted {1}'.format(__name__, err))
+
+    # ITicketManipulator methods
+    def prepare_ticket(self, req, ticket, fields, actions):
+        pass
+
+    def validate_ticket(self, req, ticket):
         if self.has_ticket_refs(ticket):
             _prop = ('ticket-custom', 'refs.label')
             for _id in ticket['refs'].replace(',', ' ').split():
@@ -286,40 +361,6 @@ class TicketRelationsSystem(Component):
                     yield self.env.config.get(*_prop), msg
                 except Exception, err:
                     yield self.env.config.get(*_prop), err
-
-    def _update_parents(self, ticket, comment, author, old_values):
-        if 'parents' not in old_values:
-            return
-
-        old_parents = old_values.get('parents', '') or ''
-        old_parents = set(NUMBERS_RE.findall(old_parents))
-        new_parents = set(NUMBERS_RE.findall(ticket['parents'] or ''))
-
-        if new_parents == old_parents:
-            return
-
-        with self.env.db_transaction as db:
-            cursor = db.cursor()
-
-            # remove old parents
-            for parent in old_parents - new_parents:
-                cursor.execute("DELETE FROM ticketrels_parents_and_children WHERE parent=%s AND child=%s",
-                               (parent, ticket.id))
-                # add a comment to old parent
-                xticket = Ticket(self.env, parent)
-                xticket.save_changes(author, _('Remove a child ticket #%s (%s).') % (ticket.id, ticket['summary']))
-                tn = TicketNotifyEmail(self.env)
-                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
-
-            # add new parents
-            for parent in new_parents - old_parents:
-                cursor.execute("INSERT INTO ticketrels_parents_and_children VALUES(%s, %s)",
-                               (parent, ticket.id))
-                # add a comment to new parent
-                xticket = Ticket(self.env, parent)
-                xticket.save_changes(author, _('Add a child ticket #%s (%s).') % (ticket.id, ticket['summary']))
-                tn = TicketNotifyEmail(self.env)
-                tn.notify(xticket, newticket=False, modtime=xticket['changetime'])
 
     def _get_refs(self, message, except_ids=None):
         ref_ids = set([])
