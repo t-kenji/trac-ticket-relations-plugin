@@ -37,6 +37,11 @@ Active Tickets::
       cp.value AS parents,
       cr.value AS refs
       FROM ticket t
-      LEFT OUTER JOIN ticket_custom cp ON
+      LEFT OUTER JOIN ticket_custom cp ON  (t.id = cp.ticket AND cp.name = 'parents')
+      LEFT OUTER JOIN ticket_custom cr ON (t.id = cr.ticket AND cr.name = 'refs')
+      LEFT JOIN enum p ON p.name = t.priority AND p.type = 'priority'
+      WHERE status <> 'closed'
+      ORDER BY CAST(p.value AS integer), milestone, t.type, time
+
 
 
