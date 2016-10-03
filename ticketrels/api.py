@@ -305,7 +305,7 @@ class TicketReference(Component):
             if not links:
                 links = TicketLinks(self.env, ticket)
             try:
-                if old_values:
+                if old_values and old_values.get('refs'):
                     # change fields
                     old_refs = set([int(i) for i in NUMBERS_RE.findall(old_values.get('refs'))])
                 else:

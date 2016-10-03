@@ -148,6 +148,7 @@ class TicketLinks(object):
                            WHERE ticket=%s AND name='refs'
                            """,
                            (self.ticket.id,)):
+                ref = ref or ''
                 target_refs = set([int(i) for i in NUMBERS_RE.findall(ref)])
                 if ref_id not in target_refs:
                     target_refs.add(ref_id)
