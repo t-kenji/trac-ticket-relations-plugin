@@ -175,15 +175,16 @@ class TicketRelationsModule(Component):
                 snippet.append(tag.h2(_('Relationships'), class_='foldable'))
 
                 div = tag.div(class_='description')
-                if ticket['status'] not in self.restricted_status:
+                link = None
+                if 'TICKET_CREATE' in req.perm(ticket.resource) \
+                   and ticket['status'] not in self.restricted_status:
+
                     attr = {
                         'target': '_blank',
                         'href': req.href.newticket(parents=ticket.id),
                         'title': _('Create new child ticket')
                     }
                     link = tag.span('(', tag.a(_('add'), **attr), ')', class_='addticketrels')
-                else:
-                    link = None
                 div.append(tag.h3(_('Child Tickets '), link))
 
                 if 'children' in data:
@@ -217,14 +218,16 @@ class TicketRelationsModule(Component):
 
                     _func(data['children'])
 
-                props = { 'refs': ticket.id  }
-                props.update(dict([(i, ticket[i]) for i in COPY_TICKET_FIELDS if ticket[i]]))
-                attr = {
-                    'target': '_blank',
-                    'href': req.href.newticket(**props),
-                    'title': _('Create new ticket with reference'),
-                }
-                link = tag.span('(', tag.a(_('add'), **attr), ')', class_='addticketrels')
+                link = None
+                if 'TICKET_CREATE' in req.perm(ticket.resource):
+                    props = { 'refs': ticket.id  }
+                    props.update(dict([(i, ticket[i]) for i in COPY_TICKET_FIELDS if ticket[i]]))
+                    attr = {
+                        'target': '_blank',
+                        'href': req.href.newticket(**props),
+                        'title': _('Create new ticket with reference'),
+                    }
+                    link = tag.span('(', tag.a(_('add'), **attr), ')', class_='addticketrels')
                 div.append(tag.h3(_('Reference Tickets '), link))
 
                 for field in data.get('fields', []):
