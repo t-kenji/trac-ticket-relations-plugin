@@ -67,7 +67,7 @@ msgid "Child ticket #%s has not been %s yet"
 msgstr "子チケット #%s が %s になっていません"
 
 #: ticketrels/web_ui.py:143
-msgid "Relationships"
+msgid "Relations"
 msgstr "関連性"
 
 #: ticketrels/web_ui.py:147
@@ -78,8 +78,7 @@ msgstr "追加"
 msgid "Create new child ticket"
 msgstr "新規に子チケットを作成"
 
-#: ticketrels/web_ui.py:153
-#, fuzzy
+#: ticketrels/web_ui.py:188
 msgid "Child Tickets "
 msgstr "子チケット "
 
@@ -92,7 +91,7 @@ msgid "Reference Tickets "
 msgstr "参照チケット"
 
 #: ticketrels/web_ui.py:228
-msgid "See Relationships"
+msgid "See Relations"
 msgstr "関連性を参照"
 
 #: ticketrels/web_ui.py:246

@@ -42,6 +42,9 @@ setup(
     license = 'BSD',
 
     install_requires = ['Trac >= 1.0dev'],
+    extras_require = {
+        'avatar': ['trac-avatar-plugin'],  
+    }
 
     packages = find_packages(exclude=['*.tests*']),
     package_data = {

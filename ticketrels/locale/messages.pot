@@ -65,7 +65,7 @@ msgid "Child ticket #%s has not been %s yet"
 msgstr ""
 
 #: ticketrels/web_ui.py:143
-msgid "Relationships"
+msgid "Relations"
 msgstr ""
 
 #: ticketrels/web_ui.py:147
@@ -76,7 +76,7 @@ msgstr ""
 msgid "Create new child ticket"
 msgstr ""
 
-#: ticketrels/web_ui.py:153
+#: ticketrels/web_ui.py:188
 msgid "Child Tickets "
 msgstr ""
 
@@ -89,7 +89,7 @@ msgid "Reference Tickets "
 msgstr ""
 
 #: ticketrels/web_ui.py:228
-msgid "See Relationships"
+msgid "See Relations"
 msgstr ""
 
 #: ticketrels/web_ui.py:246

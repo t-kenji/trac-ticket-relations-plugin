@@ -37,6 +37,8 @@ from trac.util.text import shorten_line
 from genshi.builder import tag
 from genshi.filters import Transformer
 
+from avatar.web_ui import AvatarProvider
+
 from api import TicketRelationsSystem, \
                 TicketParentChildRelations, TicketReference, \
                 NUMBERS_RE, _
@@ -171,8 +173,8 @@ class TicketRelationsModule(Component):
                 # get parents data
                 ticket = data['ticket']
                 # title
-                snippet = tag.div(id='relationships')
-                snippet.append(tag.h2(_('Relationships'), class_='foldable'))
+                snippet = tag.div(id='relations')
+                snippet.append(tag.h2(_('Relations'), class_='foldable'))
 
                 div = tag.div(class_='description')
                 link = None
@@ -211,7 +213,21 @@ class TicketRelationsModule(Component):
                             # 4th column
                             href = req.href.query(status='!closed',
                                                   owner=ticket['owner'])
-                            owner = tag.td(tag.a(ticket['owner'], href=href))
+
+                            if self.env.is_component_enabled(AvatarProvider):
+                                from avatar.backend import AvatarBackend
+                                avatar = AvatarBackend(self.env, self.config)
+                                owner = tag.td(
+                                        avatar.generate_avatar(
+                                                ticket['owner'],
+                                                'ticket-owner',
+                                                self.config.get('avatar', 'ticket_owner_size')),
+                                        tag.a(
+                                                ticket['owner'],
+                                                href=href),
+                                        name='children-owner')
+                            else:
+                                owner = tag.td(tag.a(ticket['owner'], href=href), name='children-owner')
 
                             tbody.append(tag.tr(summary, type, status, owner))
                             _func(children[id], depth + 1)
@@ -235,7 +251,7 @@ class TicketRelationsModule(Component):
                         if filename.endswith(('ticket_preview.html',)):
                             field['rendered'] = self._link_refs_line(req, ticket['refs'])
                         else:
-                            field['rendered'] = tag.a(_('See Relationships'), href='#relationships')
+                            field['rendered'] = tag.a(_('See Relations'), href='#relations')
                             if ticket['refs']:
 
                                 tbody = tag.tbody()
