@@ -1,5 +1,5 @@
-Trac Autocomplete Provider
-==========================
+Trac Ticket Relations Plugin
+============================
 
 Description
 -----------
