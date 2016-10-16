@@ -154,7 +154,7 @@ class TicketRelationsModule(Component):
                 for parent, child in cursor:
                     status = Ticket(self.env, child)['status']
                     if status not in self.restricted_status:
-                        yield None, _('Child ticket #%s has not been %s yet') % (child, status)
+                        yield None, _('Child ticket #%s has not been closed yet') % (child)
 
         elif action == 'reopen':
             ids = set(NUMBERS_RE.findall(ticket['parents'] or ''))

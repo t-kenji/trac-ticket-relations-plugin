@@ -61,7 +61,7 @@ msgstr ""
 
 #: ticketrels/web_ui.py:126
 #, python-format
-msgid "Child ticket #%s has not been %s yet"
+msgid "Child ticket #%s has not been closed yet"
 msgstr ""
 
 #: ticketrels/web_ui.py:143

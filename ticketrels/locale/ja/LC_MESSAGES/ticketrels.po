@@ -63,8 +63,8 @@ msgstr "チケット {} はこのチケットなので削除してください�
 
 #: ticketrels/web_ui.py:126
 #, python-format
-msgid "Child ticket #%s has not been %s yet"
-msgstr "子チケット #%s が %s になっていません"
+msgid "Child ticket #%s has not been closed yet"
+msgstr "子チケット #%s が closed になっていません"
 
 #: ticketrels/web_ui.py:143
 msgid "Relations"
