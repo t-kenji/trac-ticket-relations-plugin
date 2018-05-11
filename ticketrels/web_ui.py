@@ -213,7 +213,6 @@ class TicketRelationsModule(Component):
                             # 4th column
                             href = req.href.query(status='!closed',
                                                   owner=ticket['owner'])
-
                             if self.env.is_component_enabled(AvatarProvider):
                                 from avatar.backend import AvatarBackend
                                 avatar = AvatarBackend(self.env, self.config)
@@ -228,8 +227,15 @@ class TicketRelationsModule(Component):
                                         name='children-owner')
                             else:
                                 owner = tag.td(tag.a(ticket['owner'], href=href), name='children-owner')
+                            # 5th column
+                            if 'estimatedhours' in ticket and 'totalhours' in ticket:
+                                est_hours = ticket['estimatedhours']
+                                tot_hours = ticket['totalhours']
+                                hours = tag.td('{} / {} h'.format(tot_hours, est_hours))
+                            else:
+                                hours = tag.td()
 
-                            tbody.append(tag.tr(summary, type, status, owner))
+                            tbody.append(tag.tr(summary, type, status, owner, hours))
                             _func(children[id], depth + 1)
 
                     _func(data['children'])
